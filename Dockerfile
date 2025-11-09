@@ -22,4 +22,4 @@ COPY . $BASE_PATH
 COPY --from=dependencies /root/.cache /root/.cache
 RUN pip install -r requirements.txt && rm -rf /root/.cache
 
-CMD [ "python", "./run.py" ]
+CMD [ "./docker_init.sh" ]
