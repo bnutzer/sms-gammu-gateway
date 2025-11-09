@@ -2,6 +2,9 @@
 
 Simple SMS REST API gateway for sending and receiving SMS from gammu supported devices. Gammu supports standard AT commands, which are using most of USB GSM modems.
 
+This repository contains a fork of [Pavel Sklenář's sms-gammu-gateway](https://github.com/pajikos/sms-gammu-gateway). Thank you very much for your code! It is much appreciated.
+This repo contains a number of new configuration options, mostly related to running sms-gammu-gateway in docker containers.
+
 ![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/pajikos/sms-gammu-gateway.svg)
 ![Docker Automated build](https://img.shields.io/docker/automated/pajikos/sms-gammu-gateway.svg)
 ![GitHub](https://img.shields.io/github/license/pajikos/sms-gammu-gateway.svg)
