@@ -191,6 +191,10 @@ services:
       - /dev/ttyUSB1:/dev/mobile
 ```
 
+You can switch the device name used for gammu communication by setting the
+"MODEM" environment variable, e.g., by using an "-e" argument in docker,
+or using an "environment" entry in docker-compose.yml.
+
 ## FAQ
 #### PIN configuration
 Pin to unblock SIM card could be set using environment variable PIN, e.g. PIN=1234.
