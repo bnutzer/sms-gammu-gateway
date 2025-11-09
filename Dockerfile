@@ -15,7 +15,7 @@ RUN apk add --no-cache --virtual .build-deps libffi-dev openssl-dev gcc musl-dev
 
 # Switch back to base layer for final stage
 FROM base AS final
-ENV BASE_PATH /sms-gw
+ENV BASE_PATH=/sms-gw
 RUN mkdir $BASE_PATH /ssl
 WORKDIR $BASE_PATH
 COPY . $BASE_PATH
