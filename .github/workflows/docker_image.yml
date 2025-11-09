@@ -8,6 +8,20 @@ on:
         required: true
         default: 'latest'
 
+  # Automatic build every three months
+  schedule:
+    - cron: '0 6 1 1,4,7,10 *'
+
+  # Build on pushes to main branch
+  push:
+    branches:
+      - main
+      - 'build-*'
+    paths-ignore:
+      - 'README*.md'
+      - 'CLAUDE.md'
+      - '.gitignore'
+
 env:
   PLATFORMS: linux/amd64,linux/arm64
   DOCKER_HUB_REPOSITORY: ${{ github.repository }}
