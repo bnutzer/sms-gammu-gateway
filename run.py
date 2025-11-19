@@ -112,9 +112,10 @@ class GetSms(Resource):
     @auth.login_required
     def get(self):
         allSms = retrieveAllSms(machine)
-        sms = {"Date": "", "Number": "", "State": "", "Text": ""}
+        sms = {"Date": "", "Number": "", "State": "", "Text": "", "NewSms": False}
         if len(allSms) > 0:
             sms = allSms[0]
+            sms['NewSms'] = True
 
             app.logger.debug('Received message: %s', pformat(sms))
 
