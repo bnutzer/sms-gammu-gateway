@@ -179,6 +179,20 @@ connection = at
 python run.py
 ``` 
 
+## Verbosity and dry runs
+
+By passing the flag `--verbose` to the program, logging of sent and received
+messages can be enabled. Please be aware that this information can include
+sensitive data. Only activate the flag after restricting access to the data
+using an appropriate setup.
+
+The flag `--dry` can be used to prevent sending and deleting actual sms. This
+can be handy for testing and debugging purposes.
+
+Simply append the flags to your command line; this works well for the docker
+setup as well. In case of a docker compose setup, add a configuration statement
+`command: --verbose`.
+
 ## Running in Docker
 In a case of using any GSM supporting AT commands, you can simply run the container:
 ```

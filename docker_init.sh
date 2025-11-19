@@ -6,4 +6,4 @@ if  [ ! -z "$MODEM" ] ; then
 	echo "Done."
 fi
 
-exec python run.py
+exec python run.py "$@"
