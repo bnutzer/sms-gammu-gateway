@@ -25,7 +25,7 @@ on:
 env:
   PLATFORMS: linux/amd64,linux/arm64
   DOCKER_HUB_REPOSITORY: ${{ github.repository }}
-  DOCKER_HUB_TAG: ${{ github.event.inputs.docker_tag }}
+  DOCKER_HUB_TAG: ${{ github.event.inputs.docker_tag || 'latest' }}
 
 jobs:
   docker:
