@@ -1,6 +1,6 @@
 # REST API SMS Gateway using gammu
 
-Simple SMS REST API gateway for sending and receiving SMS from gammu supported devices. Gammu supports standard AT commands, which are using most of USB GSM modems.
+Simple SMS REST API gateway for sending and receiving SMS from gammu-supported devices. Gammu speaks the standard AT commands used by most USB GSM modems.
 
 This repository contains a fork of [Pavel Sklenář's sms-gammu-gateway](https://github.com/pajikos/sms-gammu-gateway). Thank you very much for your code! It is much appreciated.
 This repo contains a number of new configuration options, mostly related to running sms-gammu-gateway in docker containers.
@@ -52,7 +52,7 @@ and HTTPS, and the [REST API reference](#rest-api-endpoints) for all endpoints.
 
 # Usage
 
-There are two options how to run this REST API SMS Gateway:
+There are two ways to run this REST API SMS gateway:
 * Standalone installation
 * Running in Docker
 
@@ -73,12 +73,12 @@ HTTP Basic transmits the password in clear text, enable HTTPS (`SSL=True`,
 see the FAQ) whenever the gateway is reachable over an untrusted network.
 
 ## Prerequisites
-Either you are using Docker or standalone installation, your GSM modem must be visible in the system. 
-When you put a USB stick to your system, you have to see a new USB device:
+Whether you use Docker or a standalone installation, your GSM modem must be visible to the system.
+When you plug a USB stick into your system, a new USB device should appear:
 ```
 dmesg | grep ttyUSB
 ```
-or typing command:
+or by running:
 ```
 lsusb
 ```
@@ -87,19 +87,19 @@ lsusb
 Bus 001 Device 009: ID 12d1:1406 Huawei Technologies Co., Ltd. E1750
 ...
 ```
-If only cdrom device appeared, install [usb-modeswitch](http://www.draisberghof.de/usb_modeswitch) to see a modem as well:
+If only a CD-ROM device appears, install [usb-modeswitch](http://www.draisberghof.de/usb_modeswitch) so the modem shows up as well:
 ```
 apt-get install usb-modeswitch
 ```
 
-Per default, sms-gammu-gateway will listen on all interfaces and IPv4
+By default, sms-gammu-gateway will listen on all interfaces and IPv4
 addresses (or, more precisely, on 0.0.0.0). You can listen on local
 (or other sets of) addresses only by setting the BINDHOST environment
 variable, e.g. either using appropriate docker settings, or in/from the
 executing shell.
 
 ## Standalone installation
-This guide does not cover Python 3.x installation process (including pip), but it is required as well.
+This guide does not cover installing Python 3.x (including pip), which is required as well.
 #### Install system dependencies (using apt):
 ```
 apt-get update && apt-get install -y pkg-config gammu libgammu-dev libffi-dev
@@ -113,8 +113,8 @@ cd sms-gammu-gateway
 ```
 pip install -r requirements.txt
 ```
-#### Edit gammu configuration 
-You usually need to edit device property in file [gammu.config](https://wammu.eu/docs/manual/config/index.html) only, e.g.:
+#### Edit gammu configuration
+You usually only need to edit the device property in the [gammu.config](https://wammu.eu/docs/manual/config/index.html) file, e.g.:
 ```
 [gammu]
 device = /dev/ttyUSB1
@@ -128,7 +128,7 @@ AUTH_USERNAME=admin AUTH_PASSWORD=changeme python run.py
 ``` 
 
 ## Running in Docker
-In a case of using any GSM supporting AT commands, you can simply run the
+If your GSM device supports AT commands, you can simply run the
 container. Credentials are mandatory (see
 [above](#credentials-are-required)) — pass them as environment variables:
 ```
@@ -165,7 +165,7 @@ messages can be enabled. Please be aware that this information can include
 sensitive data. Only activate the flag after restricting access to the data
 using an appropriate setup.
 
-The flag `--dry` can be used to prevent sending and deleting actual sms. This
+The flag `--dry` can be used to prevent sending and deleting actual SMS. This
 can be handy for testing and debugging purposes.
 
 Simply append the flags to your command line; this works well for the docker
@@ -188,7 +188,7 @@ setup as well. In case of a docker compose setup, add a configuration statement
   Example:
   ```bash
   AUTH=$(echo -ne "admin:password" | base64 --wrap 0)
-  curl -H 'Content-Type: application/json' -H "Authorization: Basic $AUTH" -X POST --data '{"text":"Hello, how   are you?", "number":"+420xxxxxxxxx"}' http://localhost:5000/sms
+  curl -H 'Content-Type: application/json' -H "Authorization: Basic $AUTH" -X POST --data '{"text":"Hello, how are you?", "number":"+420xxxxxxxxx"}' http://localhost:5000/sms
   1
   ```
   If you need to customize the smsc number:
@@ -285,14 +285,43 @@ setup as well. In case of a docker compose setup, add a configuration statement
 
 
 # Integration with Home Assistant
+
+The gateway exposes plain REST endpoints, so Home Assistant can talk to it
+with its built-in `rest` integrations — no custom component required. The
+snippets below add a signal-strength sensor, an SMS `notify` service, a sensor
+that polls for incoming messages, and a couple of example automations.
+
+You can paste each block straight into your `configuration.yaml`, but keeping
+all of the gateway's configuration together in its own
+[package](https://www.home-assistant.io/docs/configuration/packages/) is
+cleaner and easier to maintain. To use a package, enable package loading once
+in `configuration.yaml`:
+
+```yaml
+homeassistant:
+  packages: !include_dir_named packages
+```
+
+then create `packages/sms-gammu-gateway.yaml` and put the blocks below into it.
+A few things to keep in mind:
+
+* Replace `xxx.xxx.xxx.xxx` with the host and port of your gateway.
+* Store the credentials as `sms_gateway_username` and `sms_gateway_password`
+  in your `secrets.yaml`, so they are not spread across your configuration.
+* Home Assistant allows each domain key (`sensor:`, `notify:`, …) only once
+  per file. When you combine several blocks below, merge their entries under a
+  single key — e.g. put both the signal-strength and the incoming-message
+  sensor into one `sensor:` list.
+
 #### Signal Strength sensor
 ```yaml
-- platform: rest
-  resource: http://xxx.xxx.xxx.xxx:5000/signal
-  name: GSM Signal
-  scan_interval: 30
-  value_template: '{{ value_json.SignalPercent }}'
-  unit_of_measurement: '%'
+sensor:
+  - platform: rest
+    resource: http://xxx.xxx.xxx.xxx:5000/signal
+    name: GSM Signal
+    scan_interval: 30
+    value_template: '{{ value_json.SignalPercent }}'
+    unit_of_measurement: '%'
 ```
 
 #### SMS notification
@@ -364,23 +393,23 @@ automation sms_automations:
 
 # FAQ
 #### PIN configuration
-Pin to unblock SIM card could be set using environment variable PIN, e.g. PIN=1234.
+The PIN to unlock the SIM card can be set via the PIN environment variable, e.g. PIN=1234.
 #### Authentication
 The SMS endpoints and `/reset` require HTTP Basic authentication. See
 [Credentials are required](#credentials-are-required) for how to configure
 username and password.
 #### How to use HTTPS?
-Using environment variable SSL=True, the program expects RSA private key and certificate to provide content via HTTPS.
-Expected file paths (you can edit it in run.py or mount your own key/cert in Docker):
+With the environment variable SSL=True, the program expects an RSA private key and certificate to serve content over HTTPS.
+The expected file paths (which you can change in run.py or override by mounting your own key/cert in Docker) are:
 ```
 /ssl/key.pem
 /ssl/cert.pem
 ```
-#### Change default port  
-Using environment variable example : PORT="5002". So not forget to modify the exposure of the port of your container.  
+#### Change default port
+Set the port via the PORT environment variable, e.g. PORT=5002. Don't forget to adjust the port exposure of your container accordingly.
 
-#### No more modem response ?
-If you have some regular problem with your modem and you don't want to disconnect and reconnect it physically to reset it, you can try to regularly use the reset function.
+#### No more modem response?
+If your modem regularly runs into problems and you don't want to physically disconnect and reconnect it to reset it, you can call the reset function on a schedule.
 (For example with my Huawei modem the reset function is used every 24 hours to maintain the stability of the system)
 
 #### It does not work...
