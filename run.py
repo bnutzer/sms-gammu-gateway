@@ -9,15 +9,19 @@ from gammu import GSMNetworks
 
 import argparse
 import logging
+from hmac import compare_digest
 from pprint import pformat
 
 pin = os.getenv('PIN', None)
-ssl = os.getenv('SSL', False)
+ssl = os.getenv('SSL', '').lower() in ('1', 'true', 'yes', 'on')
 port = os.getenv('PORT', '5000')
 host = os.getenv('BINDHOST', '0.0.0.0')
 user_data = load_user_data()
 machine = init_state_machine(pin)
 app = Flask(__name__)
+# Set on the module level so the endpoints keep working when the app is served
+# via a WSGI server (gunicorn etc.) instead of the __main__ block below.
+app.config.setdefault("DRY_RUN", False)
 api = Api(app)
 auth = HTTPBasicAuth()
 
@@ -25,7 +29,10 @@ auth = HTTPBasicAuth()
 def verify(username, password):
     if not (username and password):
         return False
-    return user_data.get(username) == password
+    stored = user_data.get(username)
+    if stored is None:
+        return False
+    return compare_digest(stored, password)
 
 
 class Sms(Resource):
