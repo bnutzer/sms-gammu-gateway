@@ -34,26 +34,20 @@ COPY --from=gammu-builder /gammu-install/bin/ /usr/bin/
 COPY --from=gammu-builder /gammu-install/lib/ /usr/lib/
 COPY --from=gammu-builder /gammu-install/include/ /usr/include/
 
-RUN python -m pip install -U pip
+RUN python -m pip install --no-cache-dir -U pip
 
-# Build dependencies in a dedicated stage
-FROM base AS dependencies
+FROM base AS final
 COPY requirements.txt .
 # python-gammu's C source trips a GCC 14+ hard error (return-with-value in a
 # void function in gammu.c); upstream bug, not fixed as of 3.2.6.
 ENV CFLAGS="-Wno-error=return-mismatch"
 RUN apk add --no-cache --virtual .build-deps libffi-dev openssl-dev gcc musl-dev python3-dev cargo \
-    && pip install -r requirements.txt
+    && pip install --no-cache-dir -r requirements.txt \
+    && apk del .build-deps
 
-# Switch back to base layer for final stage
-FROM base AS final
 ENV BASE_PATH=/sms-gw
 RUN mkdir $BASE_PATH /ssl
 WORKDIR $BASE_PATH
 COPY . $BASE_PATH
-
-COPY --from=dependencies /root/.cache /root/.cache
-
-RUN pip install -r requirements.txt && rm -rf /root/.cache
 
 ENTRYPOINT [ "./docker_init.sh" ]
