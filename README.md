@@ -109,7 +109,7 @@ This repo contains a number of new configuration options, mostly related to runn
   }
   ```
 
-- ##### Reset the modem (see FAQ for more info) :unlock:
+- ##### Reset the modem (see FAQ for more info) :lock:
   ```
   GET http://xxx.xxx.xxx.xxx:5000/reset
   ```

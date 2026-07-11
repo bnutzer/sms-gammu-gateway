@@ -90,6 +90,7 @@ class Reset(Resource):
     def __init__(self, sm):
         self.machine = sm
 
+    @auth.login_required
     def get(self):
         machine.Reset(False)
         return {"status":200, "message": "Reset done"}, 200
@@ -141,6 +142,7 @@ class SmsById(Resource):
         sms.pop("Locations")
         return sms
 
+    @auth.login_required
     def delete(self, id):
         allSms = retrieveAllSms(machine)
         self.abort_if_id_doesnt_exist(id, allSms)
