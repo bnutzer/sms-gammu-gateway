@@ -5,12 +5,175 @@ Simple SMS REST API gateway for sending and receiving SMS from gammu supported d
 This repository contains a fork of [Pavel Sklenář's sms-gammu-gateway](https://github.com/pajikos/sms-gammu-gateway). Thank you very much for your code! It is much appreciated.
 This repo contains a number of new configuration options, mostly related to running sms-gammu-gateway in docker containers.
 
-![Docker Cloud Build Status](https://img.shields.io/docker/cloud/build/pajikos/sms-gammu-gateway.svg)
-![Docker Automated build](https://img.shields.io/docker/automated/pajikos/sms-gammu-gateway.svg)
-![GitHub](https://img.shields.io/github/license/pajikos/sms-gammu-gateway.svg)
+![Docker image build](https://img.shields.io/github/actions/workflow/status/bnutzer/sms-gammu-gateway/docker_image.yml?logo=github&label=docker%20image)
+![Docker pulls](https://img.shields.io/docker/pulls/bnutzer/sms-gammu-gateway.svg?logo=docker)
+![Docker image size](https://img.shields.io/docker/image-size/bnutzer/sms-gammu-gateway.svg?logo=docker)
+![License](https://img.shields.io/github/license/bnutzer/sms-gammu-gateway.svg)
 
 
-#### Available REST API endpoints:
+## Quick start
+
+If your GSM modem speaks AT commands (most USB sticks do), the fastest way to
+try the gateway is Docker. Credentials are mandatory — there are no built-in
+defaults:
+
+```bash
+docker run -d -p 5000:5000 \
+  -e AUTH_USERNAME=admin -e AUTH_PASSWORD=changeme \
+  --device=/dev/ttyUSB0:/dev/mobile bnutzer/sms-gammu-gateway
+```
+
+Then send your first SMS:
+
+```bash
+AUTH=$(echo -ne "admin:changeme" | base64 --wrap 0)
+curl -H 'Content-Type: application/json' -H "Authorization: Basic $AUTH" \
+  -X POST --data '{"text":"Hello, how are you?", "number":"+420xxxxxxxxx"}' \
+  http://localhost:5000/sms
+```
+
+See [Usage](#usage) for standalone installation, docker-compose, credentials
+and HTTPS, and the [REST API reference](#rest-api-endpoints) for all endpoints.
+
+
+## Table of contents
+
+- [Quick start](#quick-start)
+- [Usage](#usage)
+  - [Credentials are required](#credentials-are-required)
+  - [Prerequisites](#prerequisites)
+  - [Standalone installation](#standalone-installation)
+  - [Running in Docker](#running-in-docker)
+  - [Verbosity and dry runs](#verbosity-and-dry-runs)
+- [REST API endpoints](#rest-api-endpoints)
+- [Integration with Home Assistant](#integration-with-home-assistant)
+- [FAQ](#faq)
+
+
+# Usage
+
+There are two options how to run this REST API SMS Gateway:
+* Standalone installation
+* Running in Docker
+
+## Credentials are required
+
+All SMS endpoints (and `/reset`) are protected by HTTP Basic authentication,
+and **the gateway refuses to start until you configure credentials** — there
+are no built-in defaults. Set them in either of two ways:
+
+* **Environment variables** (recommended, especially for Docker): set
+  `AUTH_USERNAME` and `AUTH_PASSWORD`.
+* **Credentials file**: provide a `credentials.txt` in the working directory
+  (`/sms-gw/credentials.txt` in the container) with one `user:password` per
+  line. This file is deliberately not part of the image.
+
+Both sources can be combined; environment variables take precedence. Because
+HTTP Basic transmits the password in clear text, enable HTTPS (`SSL=True`,
+see the FAQ) whenever the gateway is reachable over an untrusted network.
+
+## Prerequisites
+Either you are using Docker or standalone installation, your GSM modem must be visible in the system. 
+When you put a USB stick to your system, you have to see a new USB device:
+```
+dmesg | grep ttyUSB
+```
+or typing command:
+```
+lsusb
+```
+```
+...
+Bus 001 Device 009: ID 12d1:1406 Huawei Technologies Co., Ltd. E1750
+...
+```
+If only cdrom device appeared, install [usb-modeswitch](http://www.draisberghof.de/usb_modeswitch) to see a modem as well:
+```
+apt-get install usb-modeswitch
+```
+
+Per default, sms-gammu-gateway will listen on all interfaces and IPv4
+addresses (or, more precisely, on 0.0.0.0). You can listen on local
+(or other sets of) addresses only by setting the BINDHOST environment
+variable, e.g. either using appropriate docker settings, or in/from the
+executing shell.
+
+## Standalone installation
+This guide does not cover Python 3.x installation process (including pip), but it is required as well.
+#### Install system dependencies (using apt):
+```
+apt-get update && apt-get install -y pkg-config gammu libgammu-dev libffi-dev
+```
+#### Clone repository
+```
+git clone https://github.com/bnutzer/sms-gammu-gateway
+cd sms-gammu-gateway
+```
+#### Install python dependencies
+```
+pip install -r requirements.txt
+```
+#### Edit gammu configuration 
+You usually need to edit device property in file [gammu.config](https://wammu.eu/docs/manual/config/index.html) only, e.g.:
+```
+[gammu]
+device = /dev/ttyUSB1
+connection = at
+```
+#### Run application (it will start to listen on port 5000):
+Credentials are mandatory (see [above](#credentials-are-required)); provide
+them via a `credentials.txt` or environment variables:
+```
+AUTH_USERNAME=admin AUTH_PASSWORD=changeme python run.py
+``` 
+
+## Running in Docker
+In a case of using any GSM supporting AT commands, you can simply run the
+container. Credentials are mandatory (see
+[above](#credentials-are-required)) — pass them as environment variables:
+```
+docker run -d -p 5000:5000 \
+  -e AUTH_USERNAME=admin -e AUTH_PASSWORD=changeme \
+  --device=/dev/ttyUSB0:/dev/mobile bnutzer/sms-gammu-gateway
+```
+#### Docker compose:
+```
+version: '3'
+services:
+  sms-gammu-gateway:
+    container_name: sms-gammu-gateway
+    restart: always
+    image: bnutzer/sms-gammu-gateway
+    environment:
+      - PIN="1234"
+      - AUTH_USERNAME=admin
+      - AUTH_PASSWORD=changeme
+    ports:
+      - "5000:5000"
+    devices:
+      - /dev/ttyUSB1:/dev/mobile
+```
+
+Inside the container gammu always talks to the fixed device path
+`/dev/mobile`. Map your host modem onto it via the `--device` flag (or the
+`devices:` entry in docker-compose), as shown above.
+
+## Verbosity and dry runs
+
+By passing the flag `--verbose` to the program, logging of sent and received
+messages can be enabled. Please be aware that this information can include
+sensitive data. Only activate the flag after restricting access to the data
+using an appropriate setup.
+
+The flag `--dry` can be used to prevent sending and deleting actual sms. This
+can be handy for testing and debugging purposes.
+
+Simply append the flags to your command line; this works well for the docker
+setup as well. In case of a docker compose setup, add a configuration statement
+`command: --verbose`.
+
+
+# REST API endpoints
 
 - ##### Send a SMS :lock:
   ```
@@ -118,155 +281,10 @@ This repo contains a number of new configuration options, mostly related to runn
     "Status": 200,
     "Message": "Reset done"
   }
+  ```
 
 
-# Usage
-
-There are two options how to run this REST API SMS Gateway:
-* Standalone installation
-* Running in Docker
-
-## Credentials are required
-
-All SMS endpoints (and `/reset`) are protected by HTTP Basic authentication,
-and **the gateway refuses to start until you configure credentials** — there
-are no built-in defaults. Set them in either of two ways:
-
-* **Environment variables** (recommended, especially for Docker): set
-  `AUTH_USERNAME` and `AUTH_PASSWORD`.
-* **Credentials file**: provide a `credentials.txt` in the working directory
-  (`/sms-gw/credentials.txt` in the container) with one `user:password` per
-  line. This file is deliberately not part of the image.
-
-Both sources can be combined; environment variables take precedence. Because
-HTTP Basic transmits the password in clear text, enable HTTPS (`SSL=True`,
-see the FAQ) whenever the gateway is reachable over an untrusted network.
-
-## Prerequisites
-Either you are using Docker or standalone installation, your GSM modem must be visible in the system. 
-When you put a USB stick to your system, you have to see a new USB device:
-```
-dmesg | grep ttyUSB
-```
-or typing command:
-```
-lsusb
-```
-```
-...
-Bus 001 Device 009: ID 12d1:1406 Huawei Technologies Co., Ltd. E1750
-...
-```
-If only cdrom device appeared, install [usb-modeswitch](http://www.draisberghof.de/usb_modeswitch) to see a modem as well:
-```
-apt-get install usb-modeswitch
-```
-
-Per default, sms-gammu-gateway will listen on all interfaces and IPv4
-addresses (or, more precisely, on 0.0.0.0). You can listen on local
-(or other sets of) addresses only by setting the BINDHOST environment
-variable, e.g. either using appropriate docker settings, or in/from the
-executing shell.
-
-## Standalone installation
-This guide does not cover Python 3.x installation process (including pip), but it is required as well.
-#### Install system dependencies (using apt):
-```
-apt-get update && apt-get install -y pkg-config gammu libgammu-dev libffi-dev
-```
-#### Clone repository
-```
-git clone https://github.com/pajikos/sms-gammu-gateway
-cd sms-gammu-gateway
-```
-#### Install python dependencies
-```
-pip install -r requirements.txt
-```
-#### Edit gammu configuration 
-You usually need to edit device property in file [gammu.config](https://wammu.eu/docs/manual/config/index.html) only, e.g.:
-```
-[gammu]
-device = /dev/ttyUSB1
-connection = at
-```
-#### Run application (it will start to listen on port 5000):
-Credentials are mandatory (see [above](#credentials-are-required)); provide
-them via a `credentials.txt` or environment variables:
-```
-AUTH_USERNAME=admin AUTH_PASSWORD=changeme python run.py
-``` 
-
-## Verbosity and dry runs
-
-By passing the flag `--verbose` to the program, logging of sent and received
-messages can be enabled. Please be aware that this information can include
-sensitive data. Only activate the flag after restricting access to the data
-using an appropriate setup.
-
-The flag `--dry` can be used to prevent sending and deleting actual sms. This
-can be handy for testing and debugging purposes.
-
-Simply append the flags to your command line; this works well for the docker
-setup as well. In case of a docker compose setup, add a configuration statement
-`command: --verbose`.
-
-## Running in Docker
-In a case of using any GSM supporting AT commands, you can simply run the
-container. Credentials are mandatory (see
-[above](#credentials-are-required)) — pass them as environment variables:
-```
-docker run -d -p 5000:5000 \
-  -e AUTH_USERNAME=admin -e AUTH_PASSWORD=changeme \
-  --device=/dev/ttyUSB0:/dev/mobile pajikos/sms-gammu-gateway
-```
-#### Docker compose:
-```
-version: '3'
-services:
-  sms-gammu-gateway:
-    container_name: sms-gammu-gateway
-    restart: always
-    image: pajikos/sms-gammu-gateway
-    environment:
-      - PIN="1234"
-      - AUTH_USERNAME=admin
-      - AUTH_PASSWORD=changeme
-    ports:
-      - "5000:5000"
-    devices:
-      - /dev/ttyUSB1:/dev/mobile
-```
-
-Inside the container gammu always talks to the fixed device path
-`/dev/mobile`. Map your host modem onto it via the `--device` flag (or the
-`devices:` entry in docker-compose), as shown above.
-
-## FAQ
-#### PIN configuration
-Pin to unblock SIM card could be set using environment variable PIN, e.g. PIN=1234.
-#### Authentication
-The SMS endpoints and `/reset` require HTTP Basic authentication. See
-[Credentials are required](#credentials-are-required) for how to configure
-username and password.
-#### How to use HTTPS?
-Using environment variable SSL=True, the program expects RSA private key and certificate to provide content via HTTPS.
-Expected file paths (you can edit it in run.py or mount your own key/cert in Docker):
-```
-/ssl/key.pem
-/ssl/cert.pem
-```
-#### Change default port  
-Using environment variable example : PORT="5002". So not forget to modify the exposure of the port of your container.  
-
-#### No more modem response ?
-If you have some regular problem with your modem and you don't want to disconnect and reconnect it physically to reset it, you can try to regularly use the reset function.
-(For example with my Huawei modem the reset function is used every 24 hours to maintain the stability of the system)
-
-#### It does not work...
-Try to check [gammu configuration file site](https://wammu.eu/docs/manual/config/index.html)
-
-## Integration with Home Assistant
+# Integration with Home Assistant
 #### Signal Strength sensor
 ```yaml
 - platform: rest
@@ -342,3 +360,28 @@ automation sms_automations:
           title: SMS from {{ state_attr('sensor.sms', 'Number') }}
           message: "{{ state_attr('sensor.sms', 'Text') }}"
 ```
+
+
+# FAQ
+#### PIN configuration
+Pin to unblock SIM card could be set using environment variable PIN, e.g. PIN=1234.
+#### Authentication
+The SMS endpoints and `/reset` require HTTP Basic authentication. See
+[Credentials are required](#credentials-are-required) for how to configure
+username and password.
+#### How to use HTTPS?
+Using environment variable SSL=True, the program expects RSA private key and certificate to provide content via HTTPS.
+Expected file paths (you can edit it in run.py or mount your own key/cert in Docker):
+```
+/ssl/key.pem
+/ssl/cert.pem
+```
+#### Change default port  
+Using environment variable example : PORT="5002". So not forget to modify the exposure of the port of your container.  
+
+#### No more modem response ?
+If you have some regular problem with your modem and you don't want to disconnect and reconnect it physically to reset it, you can try to regularly use the reset function.
+(For example with my Huawei modem the reset function is used every 24 hours to maintain the stability of the system)
+
+#### It does not work...
+Try to check [gammu configuration file site](https://wammu.eu/docs/manual/config/index.html)
