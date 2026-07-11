@@ -80,5 +80,9 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            IMAGE_VERSION=${{ steps.meta.outputs.version }}
+            IMAGE_REVISION=${{ github.sha }}
+            IMAGE_CREATED=${{ fromJSON(steps.meta.outputs.json).labels['org.opencontainers.image.created'] }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache,mode=max

@@ -37,6 +37,22 @@ COPY --from=gammu-builder /gammu-install/include/ /usr/include/
 RUN python -m pip install --no-cache-dir -U pip
 
 FROM base AS final
+
+# Build metadata, populated by CI (see .github/workflows/docker_image.yml).
+# Defaults keep local builds working without passing --build-arg.
+ARG IMAGE_VERSION=dev
+ARG IMAGE_REVISION=unknown
+ARG IMAGE_CREATED=unknown
+
+LABEL org.opencontainers.image.title="sms-gammu-gateway" \
+      org.opencontainers.image.description="REST API SMS gateway for sending and receiving SMS via gammu-supported GSM modems" \
+      org.opencontainers.image.url="https://github.com/bnutzer/sms-gammu-gateway" \
+      org.opencontainers.image.source="https://github.com/bnutzer/sms-gammu-gateway" \
+      org.opencontainers.image.licenses="Apache-2.0" \
+      org.opencontainers.image.version="${IMAGE_VERSION}" \
+      org.opencontainers.image.revision="${IMAGE_REVISION}" \
+      org.opencontainers.image.created="${IMAGE_CREATED}"
+
 COPY requirements.txt .
 # python-gammu's C source trips a GCC 14+ hard error (return-with-value in a
 # void function in gammu.c); upstream bug, not fixed as of 3.2.6.
