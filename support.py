@@ -1,14 +1,45 @@
+import os
 import sys
 
 import gammu
 
+DEFAULT_CREDENTIALS = ('admin', 'password')
+
 
 def load_user_data(filename='credentials.txt'):
+    """Collect basic-auth credentials from an optional file and env vars.
+
+    Credentials may come from a ``credentials.txt`` file (one ``user:password``
+    per line, optional) and/or the ``AUTH_USERNAME``/``AUTH_PASSWORD`` env vars,
+    which take precedence. The process refuses to start without credentials or
+    with the shipped default, so an unconfigured gateway is never reachable.
+    """
     users = {}
-    with open(filename) as credentials:
-        for line in credentials:
-            username, password = line.partition(":")[::2]
-            users[username.strip()] = password.strip()
+
+    if os.path.exists(filename):
+        with open(filename) as credentials:
+            for line in credentials:
+                if ':' not in line:
+                    continue
+                username, password = line.partition(":")[::2]
+                users[username.strip()] = password.strip()
+
+    env_user = os.getenv('AUTH_USERNAME')
+    env_pass = os.getenv('AUTH_PASSWORD')
+    if env_user and env_pass:
+        users[env_user] = env_pass
+
+    if not users:
+        print("No credentials configured. Set AUTH_USERNAME/AUTH_PASSWORD "
+              "or mount a credentials.txt file.", file=sys.stderr)
+        sys.exit(1)
+
+    default_user, default_pass = DEFAULT_CREDENTIALS
+    if users.get(default_user) == default_pass:
+        print("Refusing to start with the default credentials "
+              "(admin:password). Please configure your own.", file=sys.stderr)
+        sys.exit(1)
+
     return users
 
 

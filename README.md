@@ -126,6 +126,22 @@ There are two options how to run this REST API SMS Gateway:
 * Standalone installation
 * Running in Docker
 
+## Credentials are required
+
+All SMS endpoints (and `/reset`) are protected by HTTP Basic authentication,
+and **the gateway refuses to start until you configure credentials** — there
+are no built-in defaults. Set them in either of two ways:
+
+* **Environment variables** (recommended, especially for Docker): set
+  `AUTH_USERNAME` and `AUTH_PASSWORD`.
+* **Credentials file**: provide a `credentials.txt` in the working directory
+  (`/sms-gw/credentials.txt` in the container) with one `user:password` per
+  line. This file is deliberately not part of the image.
+
+Both sources can be combined; environment variables take precedence. Because
+HTTP Basic transmits the password in clear text, enable HTTPS (`SSL=True`,
+see the FAQ) whenever the gateway is reachable over an untrusted network.
+
 ## Prerequisites
 Either you are using Docker or standalone installation, your GSM modem must be visible in the system. 
 When you put a USB stick to your system, you have to see a new USB device:
@@ -175,8 +191,10 @@ device = /dev/ttyUSB1
 connection = at
 ```
 #### Run application (it will start to listen on port 5000):
+Credentials are mandatory (see [above](#credentials-are-required)); provide
+them via a `credentials.txt` or environment variables:
 ```
-python run.py
+AUTH_USERNAME=admin AUTH_PASSWORD=changeme python run.py
 ``` 
 
 ## Verbosity and dry runs
@@ -194,9 +212,13 @@ setup as well. In case of a docker compose setup, add a configuration statement
 `command: --verbose`.
 
 ## Running in Docker
-In a case of using any GSM supporting AT commands, you can simply run the container:
+In a case of using any GSM supporting AT commands, you can simply run the
+container. Credentials are mandatory (see
+[above](#credentials-are-required)) — pass them as environment variables:
 ```
-docker run -d -p 5000:5000 --device=/dev/ttyUSB0:/dev/mobile pajikos/sms-gammu-gateway
+docker run -d -p 5000:5000 \
+  -e AUTH_USERNAME=admin -e AUTH_PASSWORD=changeme \
+  --device=/dev/ttyUSB0:/dev/mobile pajikos/sms-gammu-gateway
 ```
 #### Docker compose:
 ```
@@ -208,6 +230,8 @@ services:
     image: pajikos/sms-gammu-gateway
     environment:
       - PIN="1234"
+      - AUTH_USERNAME=admin
+      - AUTH_PASSWORD=changeme
     ports:
       - "5000:5000"
     devices:
@@ -222,7 +246,9 @@ or using an "environment" entry in docker-compose.yml.
 #### PIN configuration
 Pin to unblock SIM card could be set using environment variable PIN, e.g. PIN=1234.
 #### Authentication
-Out of the box, there is needed an HTTP Basic authentication to send any SMS, username and password can be configured in `credentials.txt`
+The SMS endpoints and `/reset` require HTTP Basic authentication. See
+[Credentials are required](#credentials-are-required) for how to configure
+username and password.
 #### How to use HTTPS?
 Using environment variable SSL=True, the program expects RSA private key and certificate to provide content via HTTPS.
 Expected file paths (you can edit it in run.py or mount your own key/cert in Docker):
