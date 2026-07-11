@@ -238,9 +238,9 @@ services:
       - /dev/ttyUSB1:/dev/mobile
 ```
 
-You can switch the device name used for gammu communication by setting the
-"MODEM" environment variable, e.g., by using an "-e" argument in docker,
-or using an "environment" entry in docker-compose.yml.
+Inside the container gammu always talks to the fixed device path
+`/dev/mobile`. Map your host modem onto it via the `--device` flag (or the
+`devices:` entry in docker-compose), as shown above.
 
 ## FAQ
 #### PIN configuration

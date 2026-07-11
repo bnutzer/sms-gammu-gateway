@@ -50,4 +50,4 @@ RUN mkdir $BASE_PATH /ssl
 WORKDIR $BASE_PATH
 COPY . $BASE_PATH
 
-ENTRYPOINT [ "./docker_init.sh" ]
+ENTRYPOINT [ "python", "run.py" ]
