@@ -205,6 +205,40 @@ api.add_resource(Network, '/network', resource_class_args=[machine])
 api.add_resource(GetSms, '/getsms', resource_class_args=[machine])
 api.add_resource(Reset, '/reset', resource_class_args=[machine])
 
+class AccessLogMiddleware:
+    """Emit one access-log line per request.
+
+    Werkzeug's development server logs every request out of the box; waitress
+    does not. This middleware restores that behaviour through the configured
+    logging setup, so it honours the --verbose/--silent flags. The logged
+    client is REMOTE_ADDR, matching Werkzeug; behind a reverse proxy that is
+    the proxy's address (waitress strips X-Forwarded-For by default unless a
+    trusted_proxy is configured).
+    """
+
+    def __init__(self, wsgi_app):
+        self.wsgi_app = wsgi_app
+        self.logger = logging.getLogger("access")
+
+    def __call__(self, environ, start_response):
+        def log_start_response(status, headers, *args):
+            client = environ.get("REMOTE_ADDR", "-")
+            path = environ.get("PATH_INFO", "")
+            query = environ.get("QUERY_STRING", "")
+            if query:
+                path = "%s?%s" % (path, query)
+            self.logger.info(
+                '%s "%s %s" %s',
+                client,
+                environ.get("REQUEST_METHOD", "-"),
+                path,
+                status.split(" ", 1)[0],
+            )
+            return start_response(status, headers, *args)
+
+        return self.wsgi_app(environ, log_start_response)
+
+
 if __name__ == '__main__':
 
     args = parse_args()
@@ -217,5 +251,6 @@ if __name__ == '__main__':
         # reverse proxy in front and leave SSL disabled here.
         app.run(port=port, host=host, ssl_context=('/ssl/cert.pem', '/ssl/key.pem'))
     else:
+        # waitress has no built-in access log, so wrap the app to restore it.
         from waitress import serve
-        serve(app, host=host, port=int(port))
+        serve(AccessLogMiddleware(app), host=host, port=int(port))
