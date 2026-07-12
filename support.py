@@ -1,5 +1,9 @@
+import json
+import logging
 import os
+import re
 import sys
+from datetime import datetime
 
 import gammu
 
@@ -107,3 +111,49 @@ def deleteSms(machine, sms):
 
 def encodeSms(smsinfo):
     return gammu.EncodeSMS(smsinfo)
+
+
+def archive_sms(archive_path, direction, sms):
+    """Persist a single SMS to the archive, if archiving is enabled.
+
+    ``archive_path`` is the ``ARCHIVE_PATH`` env value (``None``/empty disables
+    archiving entirely). ``direction`` is ``"inbox"`` or ``"outbox"`` and names
+    the subfolder. ``sms`` is a dict from which a known set of fields is stored.
+
+    Archiving is best effort: any failure (unwritable path, full disk) is logged
+    as a warning and swallowed, so the archive never blocks sending or receiving.
+    """
+    if not archive_path:
+        return
+
+    try:
+        folder = os.path.join(archive_path, direction)
+        os.makedirs(folder, exist_ok=True)
+
+        now = datetime.now()
+        number = sms.get("Number") or "unknown"
+        # Keep the number readable in the filename but strip anything that is
+        # awkward in a path; microseconds keep concurrent writes from colliding.
+        safe_number = re.sub(r"[^0-9A-Za-z+]", "_", str(number))
+        filename = "{}-{}.json".format(now.strftime("%Y%m%d-%H%M%S-%f"), safe_number)
+
+        record = {
+            "Direction": direction,
+            "ArchivedAt": now.isoformat(),
+            "Number": sms.get("Number"),
+            "Text": sms.get("Text"),
+            "Date": sms.get("Date"),
+            "State": sms.get("State"),
+            "SMSC": sms.get("SMSC"),
+        }
+        record = {key: value for key, value in record.items() if value is not None}
+
+        path = os.path.join(folder, filename)
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump(record, handle, ensure_ascii=False, indent=2)
+
+        logging.getLogger("archive").debug("Archived %s SMS to %s", direction, path)
+    except Exception as exc:
+        logging.getLogger("archive").warning(
+            "Failed to archive %s SMS: %s", direction, exc
+        )

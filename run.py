@@ -4,7 +4,7 @@ from flask import Flask, request, current_app
 from flask_httpauth import HTTPBasicAuth
 from flask_restful import reqparse, Api, Resource, abort
 
-from support import load_user_data, init_state_machine, retrieveAllSms, deleteSms, encodeSms
+from support import load_user_data, init_state_machine, retrieveAllSms, deleteSms, encodeSms, archive_sms
 from gammu import GSMNetworks
 
 import argparse
@@ -14,6 +14,9 @@ from hmac import compare_digest
 from pprint import pformat
 
 pin = os.getenv('PIN', None)
+# A non-empty ARCHIVE_PATH both enables archiving and names the target
+# directory; an unset/empty value disables it. No separate on/off toggle.
+archive_path = os.getenv('ARCHIVE_PATH') or None
 ssl = os.getenv('SSL', '').lower() in ('1', 'true', 'yes', 'on')
 port = os.getenv('PORT', '5000')
 host = os.getenv('BINDHOST', '0.0.0.0')
@@ -86,6 +89,12 @@ class Sms(Resource):
         else:
             with machine_lock:
                 result = [machine.SendSMS(message) for message in messages]
+            for number in args.get("number").split(','):
+                archive_sms(archive_path, "outbox", {
+                    "Number": number,
+                    "Text": args['text'],
+                    "SMSC": args.get("smsc"),
+                })
 
         app.logger.debug('Done -- %s', str(result))
 
@@ -141,6 +150,7 @@ class GetSms(Resource):
                 if current_app.config["DRY_RUN"]:
                     app.logger.info("Dry run, will not delete message")
                 else:
+                    archive_sms(archive_path, "inbox", sms)
                     deleteSms(machine, sms)
 
                 sms.pop("Locations")
@@ -170,6 +180,7 @@ class SmsById(Resource):
             if current_app.config["DRY_RUN"]:
                 app.logger.info("Dry run, will not actually delete message %s", id)
             else:
+                archive_sms(archive_path, "inbox", allSms[id])
                 deleteSms(machine, allSms[id])
 
         return '', 204

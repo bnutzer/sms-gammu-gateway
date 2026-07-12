@@ -418,6 +418,29 @@ key/cert in Docker) are:
 #### Change default port
 Set the port via the PORT environment variable, e.g. PORT=5002. Don't forget to adjust the port exposure of your container accordingly.
 
+#### Archiving sent and received messages
+Set the `ARCHIVE_PATH` environment variable to a directory and the gateway
+writes a copy of every message it sends and every message it deletes from the
+modem into that directory. There is no separate on/off switch: setting
+`ARCHIVE_PATH` enables archiving, leaving it unset disables it.
+
+Each message is stored as a single JSON file under an `inbox` or `outbox`
+subfolder, named `<timestamp>-<number>.json`, e.g.:
+```
+${ARCHIVE_PATH}/outbox/20260712-104933-699520-+4915112345678.json
+${ARCHIVE_PATH}/inbox/20260712-104933-699849-+49301.json
+```
+
+Note that incoming messages are only archived when they are removed from the
+modem, i.e. when a client calls `GET /getsms` or `DELETE /sms/<id>`; listing via
+`GET /sms` does not archive and does not delete. In a dry run (`--dry`) nothing
+is deleted, so nothing is archived either. Archiving is best effort: if writing
+fails (unwritable path, full disk) a warning is logged and sending/receiving
+continues unaffected.
+
+In Docker, mount a volume at `ARCHIVE_PATH` so the archive survives container
+restarts, e.g. `-e ARCHIVE_PATH=/archive -v /host/sms-archive:/archive`.
+
 #### No more modem response?
 If your modem regularly runs into problems and you don't want to physically disconnect and reconnect it to reset it, you can call the reset function on a schedule.
 (For example with my Huawei modem the reset function is used every 24 hours to maintain the stability of the system)
