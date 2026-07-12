@@ -399,8 +399,18 @@ The SMS endpoints and `/reset` require HTTP Basic authentication. See
 [Credentials are required](#credentials-are-required) for how to configure
 username and password.
 #### How to use HTTPS?
-With the environment variable SSL=True, the program expects an RSA private key and certificate to serve content over HTTPS.
-The expected file paths (which you can change in run.py or override by mounting your own key/cert in Docker) are:
+For production, the recommended way to serve the gateway over HTTPS is to put a
+reverse proxy (nginx, Traefik, Caddy, …) in front of it and let the proxy
+terminate TLS and manage certificates. Leave `SSL` disabled in that setup: the
+gateway is then served by [waitress](https://github.com/Pylons/waitress), a
+production-grade WSGI server, over plain HTTP behind the proxy.
+
+For small setups without a reverse proxy you can still let the gateway
+terminate TLS itself by setting the environment variable `SSL=True`. In that
+mode it falls back to Flask's built-in Werkzeug server (waitress cannot
+terminate TLS) and expects an RSA private key and certificate. The expected
+file paths (which you can change in run.py or override by mounting your own
+key/cert in Docker) are:
 ```
 /ssl/key.pem
 /ssl/cert.pem

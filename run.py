@@ -212,6 +212,10 @@ if __name__ == '__main__':
     app.config["DRY_RUN"] = args.dry
 
     if ssl:
+        # waitress cannot terminate TLS, so fall back to Werkzeug's built-in
+        # server for the (discouraged) direct-TLS setup. For production, put a
+        # reverse proxy in front and leave SSL disabled here.
         app.run(port=port, host=host, ssl_context=('/ssl/cert.pem', '/ssl/key.pem'))
     else:
-        app.run(port=port, host=host)
+        from waitress import serve
+        serve(app, host=host, port=int(port))
