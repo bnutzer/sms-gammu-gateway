@@ -9,6 +9,7 @@ from gammu import GSMNetworks
 
 import argparse
 import logging
+import threading
 from hmac import compare_digest
 from pprint import pformat
 
@@ -18,6 +19,10 @@ port = os.getenv('PORT', '5000')
 host = os.getenv('BINDHOST', '0.0.0.0')
 user_data = load_user_data()
 machine = init_state_machine(pin)
+# The modem is a single serial device and python-gammu's StateMachine is not
+# thread-safe. Serialize every modem interaction through this lock so the app
+# stays correct under a multi-threaded WSGI server (e.g. waitress).
+machine_lock = threading.Lock()
 app = Flask(__name__)
 # Set on the module level so the endpoints keep working when the app is served
 # via a WSGI server (gunicorn etc.) instead of the __main__ block below.
@@ -46,7 +51,8 @@ class Sms(Resource):
 
     @auth.login_required
     def get(self):
-        allSms = retrieveAllSms(machine)
+        with machine_lock:
+            allSms = retrieveAllSms(machine)
         list(map(lambda sms: sms.pop("Locations"), allSms))
         return allSms
 
@@ -78,7 +84,8 @@ class Sms(Resource):
             app.logger.info("Dry run, will not actually send message.")
             result = "[OK]"
         else:
-            result = [machine.SendSMS(message) for message in messages]
+            with machine_lock:
+                result = [machine.SendSMS(message) for message in messages]
 
         app.logger.debug('Done -- %s', str(result))
 
@@ -90,7 +97,8 @@ class Signal(Resource):
         self.machine = sm
 
     def get(self):
-        return machine.GetSignalQuality()
+        with machine_lock:
+            return machine.GetSignalQuality()
 
 
 class Reset(Resource):
@@ -99,7 +107,8 @@ class Reset(Resource):
 
     @auth.login_required
     def get(self):
-        machine.Reset(False)
+        with machine_lock:
+            machine.Reset(False)
         return {"status":200, "message": "Reset done"}, 200
 
 
@@ -108,7 +117,8 @@ class Network(Resource):
         self.machine = sm
 
     def get(self):
-        network = machine.GetNetworkInfo()
+        with machine_lock:
+            network = machine.GetNetworkInfo()
         network["NetworkName"] = GSMNetworks.get(network["NetworkCode"], 'Unknown')
         return network
 
@@ -119,20 +129,21 @@ class GetSms(Resource):
 
     @auth.login_required
     def get(self):
-        allSms = retrieveAllSms(machine)
-        sms = {"Date": "", "Number": "", "State": "", "Text": "", "NewSms": False}
-        if len(allSms) > 0:
-            sms = allSms[0]
-            sms['NewSms'] = True
+        with machine_lock:
+            allSms = retrieveAllSms(machine)
+            sms = {"Date": "", "Number": "", "State": "", "Text": "", "NewSms": False}
+            if len(allSms) > 0:
+                sms = allSms[0]
+                sms['NewSms'] = True
 
-            app.logger.debug('Received message: %s', pformat(sms))
+                app.logger.debug('Received message: %s', pformat(sms))
 
-            if current_app.config["DRY_RUN"]:
-                app.logger.info("Dry run, will not delete message")
-            else:
-                deleteSms(machine, sms)
+                if current_app.config["DRY_RUN"]:
+                    app.logger.info("Dry run, will not delete message")
+                else:
+                    deleteSms(machine, sms)
 
-            sms.pop("Locations")
+                sms.pop("Locations")
 
         return sms
 
@@ -142,7 +153,8 @@ class SmsById(Resource):
 
     @auth.login_required
     def get(self, id):
-        allSms = retrieveAllSms(machine)
+        with machine_lock:
+            allSms = retrieveAllSms(machine)
         self.abort_if_id_doesnt_exist(id, allSms)
         sms = allSms[id]
         app.logger.debug('Received message %s: %s', id, pformat(sms))
@@ -151,13 +163,14 @@ class SmsById(Resource):
 
     @auth.login_required
     def delete(self, id):
-        allSms = retrieveAllSms(machine)
-        self.abort_if_id_doesnt_exist(id, allSms)
+        with machine_lock:
+            allSms = retrieveAllSms(machine)
+            self.abort_if_id_doesnt_exist(id, allSms)
 
-        if current_app.config["DRY_RUN"]:
-            app.logger.info("Dry run, will not actually delete message %s", id)
-        else:
-            deleteSms(machine, allSms[id])
+            if current_app.config["DRY_RUN"]:
+                app.logger.info("Dry run, will not actually delete message %s", id)
+            else:
+                deleteSms(machine, allSms[id])
 
         return '', 204
 
