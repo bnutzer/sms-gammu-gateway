@@ -57,9 +57,6 @@ LABEL org.opencontainers.image.title="sms-gammu-gateway" \
       org.opencontainers.image.created="${IMAGE_CREATED}"
 
 COPY requirements.txt .
-# python-gammu's C source trips a GCC 14+ hard error (return-with-value in a
-# void function in gammu.c); upstream bug, not fixed as of 3.2.6.
-ENV CFLAGS="-Wno-error=return-mismatch"
 RUN apk add --no-cache --virtual .build-deps gcc musl-dev python3-dev \
     && pip install --no-cache-dir -r requirements.txt \
     && apk del .build-deps
