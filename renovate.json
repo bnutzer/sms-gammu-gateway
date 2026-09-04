@@ -3,5 +3,37 @@
   "extends": [
     "config:recommended"
   ],
-  "forkProcessing": "enabled"
+  "forkProcessing": "enabled",
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Gammu source tarball version built in the Dockerfile",
+      "managerFilePatterns": [
+        "/^Dockerfile$/"
+      ],
+      "matchStrings": [
+        "ARG GAMMU_VERSION=(?<currentValue>\\S+)"
+      ],
+      "depNameTemplate": "gammu/gammu",
+      "datasourceTemplate": "github-releases"
+    }
+  ],
+  "packageRules": [
+    {
+      "description": "libGammu and python-gammu are compiled against each other and must move together",
+      "matchDatasources": [
+        "github-releases",
+        "pypi"
+      ],
+      "matchPackageNames": [
+        "gammu/gammu",
+        "python-gammu"
+      ],
+      "groupName": "gammu",
+      "prBodyNotes": [
+        ":warning: `GAMMU_SHA256` in the Dockerfile is **not** updated automatically. Recompute it before merging:",
+        "```sh\ncurl -sL https://github.com/gammu/gammu/releases/download/$GAMMU_VERSION/Gammu-$GAMMU_VERSION.tar.gz | sha256sum\n```"
+      ]
+    }
+  ]
 }
