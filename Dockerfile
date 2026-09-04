@@ -1,7 +1,10 @@
 FROM python:3-alpine AS gammu-builder
 
-ARG GAMMU_VERSION=1.43.2
-ARG GAMMU_SHA256=bd521c0483a52808abf885cf0dd9f42036354a5f94518ffe064cb9e7ef23fd02
+# Kept in lockstep with python-gammu in requirements.txt. Renovate bumps
+# GAMMU_VERSION but cannot compute the checksum. github has the sha256 sum
+# in its release list at https://github.com/gammu/gammu/releases/tag/${GAMMU_VERSION}
+ARG GAMMU_VERSION=1.44.1
+ARG GAMMU_SHA256=59876301ed7556c909b656b09c07d9d43ef167eba1ae976175710024188f053d
 
 RUN apk add --no-cache \
 	build-base cmake samurai linux-headers \

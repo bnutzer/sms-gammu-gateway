@@ -1,4 +1,6 @@
-python-gammu>=3.2.6
+# python-gammu is compiled against the libGammu built in the Dockerfile.
+# python-gammu and Gammu versions are coupled. Need an exact pinning here.
+python-gammu==3.4.1
 flask
 flask-restful
 Flask-HTTPAuth
